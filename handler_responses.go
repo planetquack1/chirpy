@@ -42,9 +42,12 @@ func respondWithJSON(w http.ResponseWriter, code int, msg string) {
 	cleanedMsg := strings.Join(words, " ")
 
 	// Send the cleaned body
-	cCleanedBody := chirpCleanedBody{CleanedBody: cleanedMsg}
+	cCleanedChirp := chirp{
+		Id:   len(chirps) + 1,
+		Body: cleanedMsg,
+	}
 
-	dat, err := json.Marshal(cCleanedBody)
+	dat, err := json.Marshal(cCleanedChirp)
 	if err != nil {
 		log.Printf("Error marshalling error JSON: %s", err)
 		return
@@ -52,4 +55,6 @@ func respondWithJSON(w http.ResponseWriter, code int, msg string) {
 
 	w.WriteHeader(code)
 	w.Write(dat)
+
+	chirps = append(chirps, cCleanedChirp)
 }
