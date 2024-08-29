@@ -1,6 +1,6 @@
 package main
 
-type chirp struct {
+type Chirp struct {
 	// these tags indicate how the keys in the JSON should be mapped to the struct fields
 	// the struct fields must be exported (start with a capital letter) if you want them parsed
 	Id   int    `json:"id"`

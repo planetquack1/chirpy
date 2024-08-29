@@ -41,9 +41,15 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hits reset to 0"))
 }
 
-func (cfg *apiConfig) getAllChirps(w http.ResponseWriter, r *http.Request) {
+func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
 
-	dat, err := json.Marshal(chirps)
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	dat, err := json.Marshal(database)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
 		w.WriteHeader(500)
@@ -55,7 +61,7 @@ func (cfg *apiConfig) getAllChirps(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 }
 
-func (cfg *apiConfig) postChirp(w http.ResponseWriter, r *http.Request) {
+func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -75,6 +81,19 @@ func (cfg *apiConfig) postChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, 200, cBody.Body)
+	// Load current database
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Save updated database
+	if err := db.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	db.respondWithJSON(w, 200, cBody.Body)
 
 }

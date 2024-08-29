@@ -1,10 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 )
 
 func main() {
+
+	db, err := NewDB("database.json")
+	if err != nil {
+		fmt.Println("Error: could not connect to database")
+		os.Exit(1)
+	}
 
 	mux := http.NewServeMux()
 	apiCfg := &apiConfig{}
@@ -17,8 +25,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
 
-	mux.HandleFunc("GET /api/chirps", apiCfg.getAllChirps)
-	mux.HandleFunc("POST /api/chirps", apiCfg.postChirp)
+	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
+	mux.HandleFunc("POST /api/chirps", db.postChirp)
 
 	srv := http.Server{
 		Addr:    ":8080",

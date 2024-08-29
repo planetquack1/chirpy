@@ -25,7 +25,7 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 
 var profaneWordList = []string{"kerfuffle", "sharbert", "fornax"}
 
-func respondWithJSON(w http.ResponseWriter, code int, msg string) {
+func (db *DB) respondWithJSON(w http.ResponseWriter, code int, msg string) {
 
 	// Clean the body
 	words := strings.Fields(msg) // replace the words in the slice
@@ -41,9 +41,16 @@ func respondWithJSON(w http.ResponseWriter, code int, msg string) {
 	// Join the words back into a cleaned message
 	cleanedMsg := strings.Join(words, " ")
 
+	// Load the database
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 400, "Could not load database")
+		return
+	}
+
 	// Send the cleaned body
-	cCleanedChirp := chirp{
-		Id:   len(chirps) + 1,
+	cCleanedChirp := Chirp{
+		Id:   len(database.Chirps) + 1,
 		Body: cleanedMsg,
 	}
 
@@ -56,5 +63,8 @@ func respondWithJSON(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
 	w.Write(dat)
 
-	chirps = append(chirps, cCleanedChirp)
+	database.Chirps[len(database.Chirps)] = cCleanedChirp
+
+	// Write to the database
+	db.writeDB(database)
 }
