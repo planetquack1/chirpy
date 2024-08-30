@@ -44,12 +44,17 @@ func (db *DB) ensureDB() error {
 			Chirps: make(map[int]Chirp),
 		}
 
-		file, err := json.Marshal(initialData)
+		file, err := json.MarshalIndent(initialData, "", "  ") // in order for a new file to be created, you have to use this format
 		if err != nil {
-			return err
+			return fmt.Errorf("error marshalling initial data: %w", err)
 		}
 
-		os.WriteFile("database.json", file, 0666)
+		// Ensure you're using the correct path
+		err = os.WriteFile(db.path, file, 0666)
+		if err != nil {
+			return fmt.Errorf("error writing database file: %w", err)
+		}
+
 		fmt.Println("Wrote to file " + db.path)
 		return nil
 	}
