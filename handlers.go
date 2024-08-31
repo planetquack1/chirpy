@@ -178,10 +178,10 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
-	email := Email{}
+	login := Login{}
 
 	// Check if cannot decode, send ERROR
-	err := decoder.Decode(&email)
+	err := decoder.Decode(&login)
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
 		return
@@ -196,23 +196,35 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create new User struct
 	user := User{
-		ID:    len(database.Users) + 1,
-		Email: email.Email,
+		ID:       len(database.Users) + 1,
+		Email:    login.Email,
+		Password: login.Password,
 	}
 
-	// Create the user struct
-	dat, err := json.Marshal(user)
-	if err != nil {
-		log.Printf("Error marshalling user: %s", err)
+	// Check if user exists in database
+	if _, exists := database.Users[login.Email]; exists {
+		respondWithError(w, 500, "User with same email exists")
 		return
 	}
-
 	// Add user to local database
-	database.Users[len(database.Users)] = user
+	database.Users[login.Email] = user
 
 	// Write to the original database
 	if err := db.writeDB(database); err != nil {
 		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// Create new User Without Password struct
+	uWithoutPassword := UserWithoutPassword{
+		ID:    len(database.Users) + 1,
+		Email: login.Email,
+	}
+
+	// Marshal the UserWithoutPassword struct
+	dat, err := json.Marshal(uWithoutPassword)
+	if err != nil {
+		log.Printf("Error marshalling user: %s", err)
 		return
 	}
 

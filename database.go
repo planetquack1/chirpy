@@ -14,8 +14,8 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
+	Chirps map[int]Chirp   `json:"chirps"`
+	Users  map[string]User `json:"users"`
 }
 
 // NewDB creates a new database connection
@@ -43,7 +43,7 @@ func (db *DB) ensureDB() error {
 		fmt.Println("Database does not exist")
 		initialData := DBStructure{
 			Chirps: make(map[int]Chirp),
-			Users:  make(map[int]User),
+			Users:  make(map[string]User),
 		}
 
 		file, err := json.MarshalIndent(initialData, "", "  ") // in order for a new file to be created, you have to use this format

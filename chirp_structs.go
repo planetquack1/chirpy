@@ -15,11 +15,18 @@ type chirpError struct {
 	Error string `json:"error"`
 }
 
-type Email struct {
-	Email string `json:"email"`
+type Login struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type User struct {
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type UserWithoutPassword struct {
 	ID    int    `json:"id"`
 	Email string `json:"email"`
 }
