@@ -11,13 +11,22 @@ type chirpBody struct {
 	Body string `json:"body"`
 }
 
-// type chirpValid struct {
-// 	Valid bool `json:"valid"`
-// }
-
 type chirpError struct {
 	Error string `json:"error"`
 }
+
+type Email struct {
+	Email string `json:"email"`
+}
+
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+}
+
+// type chirpValid struct {
+// 	Valid bool `json:"valid"`
+// }
 
 // type chirpCleanedBody struct {
 // 	CleanedBody string `json:"cleaned_body"`

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
@@ -25,46 +24,46 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 
 var profaneWordList = []string{"kerfuffle", "sharbert", "fornax"}
 
-func (db *DB) respondWithJSON(w http.ResponseWriter, code int, msg string) {
+// func (db *DB) respondWithJSON(w http.ResponseWriter, code int, msg string) {
 
-	// Clean the body
-	words := strings.Fields(msg) // replace the words in the slice
-	for i, word := range words {
-		for _, profanity := range profaneWordList {
-			if strings.EqualFold(word, profanity) {
-				words[i] = "****"
-				break
-			}
-		}
-	}
+// 	// Clean the body
+// 	words := strings.Fields(msg) // replace the words in the slice
+// 	for i, word := range words {
+// 		for _, profanity := range profaneWordList {
+// 			if strings.EqualFold(word, profanity) {
+// 				words[i] = "****"
+// 				break
+// 			}
+// 		}
+// 	}
 
-	// Join the words back into a cleaned message
-	cleanedMsg := strings.Join(words, " ")
+// 	// Join the words back into a cleaned message
+// 	cleanedMsg := strings.Join(words, " ")
 
-	// Load the database
-	database, err := db.loadDB()
-	if err != nil {
-		respondWithError(w, 400, "Could not load database")
-		return
-	}
+// 	// Load the database
+// 	database, err := db.loadDB()
+// 	if err != nil {
+// 		respondWithError(w, 400, "Could not load database")
+// 		return
+// 	}
 
-	// Send the cleaned body
-	cCleanedChirp := Chirp{
-		Id:   len(database.Chirps) + 1,
-		Body: cleanedMsg,
-	}
+// 	// Send the cleaned body
+// 	cCleanedChirp := Chirp{
+// 		Id:   len(database.Chirps) + 1,
+// 		Body: cleanedMsg,
+// 	}
 
-	dat, err := json.Marshal(cCleanedChirp)
-	if err != nil {
-		log.Printf("Error marshalling error JSON: %s", err)
-		return
-	}
+// 	dat, err := json.Marshal(cCleanedChirp)
+// 	if err != nil {
+// 		log.Printf("Error marshalling error JSON: %s", err)
+// 		return
+// 	}
 
-	w.WriteHeader(code)
-	w.Write(dat)
+// 	w.WriteHeader(code)
+// 	w.Write(dat)
 
-	database.Chirps[len(database.Chirps)] = cCleanedChirp
+// 	database.Chirps[len(database.Chirps)] = cCleanedChirp
 
-	// Write to the database
-	db.writeDB(database)
-}
+// 	// Write to the database
+// 	db.writeDB(database)
+// }

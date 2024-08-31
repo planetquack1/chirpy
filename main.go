@@ -8,6 +8,8 @@ import (
 
 func main() {
 
+	checkForDebug()
+
 	db, err := NewDB("database.json")
 	if err != nil {
 		fmt.Println("Error: could not connect to database")
@@ -26,8 +28,9 @@ func main() {
 	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
 
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirpByID)
-
 	mux.HandleFunc("POST /api/chirps", db.postChirp)
+
+	mux.HandleFunc("POST /api/users", db.postUser)
 
 	srv := http.Server{
 		Addr:    ":8080",

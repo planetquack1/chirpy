@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func assetHandler(w http.ResponseWriter, r *http.Request) {
@@ -108,8 +109,6 @@ func (db *DB) getChirpByID(w http.ResponseWriter, r *http.Request) {
 
 func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 
-	w.Header().Set("Content-Type", "application/json")
-
 	decoder := json.NewDecoder(r.Body)
 	cBody := chirpBody{}
 
@@ -126,6 +125,68 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clean the body
+	words := strings.Fields(cBody.Body) // replace the words in the slice
+	for i, word := range words {
+		for _, profanity := range profaneWordList {
+			if strings.EqualFold(word, profanity) {
+				words[i] = "****"
+				break
+			}
+		}
+	}
+
+	// Join the words back into a cleaned message
+	cleanedMsg := strings.Join(words, " ")
+
+	// Load the database
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 400, "Could not load database")
+		return
+	}
+
+	// Create the cleaned Chirp struct
+	cCleanedChirp := Chirp{
+		Id:   len(database.Chirps) + 1,
+		Body: cleanedMsg,
+	}
+
+	// Marshal the cleaned chirp struct
+	dat, err := json.Marshal(cCleanedChirp)
+	if err != nil {
+		log.Printf("Error marshalling cleaned chirp: %s", err)
+		return
+	}
+
+	// Add post to local database
+	database.Chirps[len(database.Chirps)] = cCleanedChirp
+
+	// Write to the original database
+	if err := db.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// Write to HTTP response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write(dat)
+
+}
+
+func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+	email := Email{}
+
+	// Check if cannot decode, send ERROR
+	err := decoder.Decode(&email)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		return
+	}
+
 	// Load current database
 	database, err := db.loadDB()
 	if err != nil {
@@ -133,12 +194,31 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save updated database
+	// Create new User struct
+	user := User{
+		ID:    len(database.Users) + 1,
+		Email: email.Email,
+	}
+
+	// Create the user struct
+	dat, err := json.Marshal(user)
+	if err != nil {
+		log.Printf("Error marshalling user: %s", err)
+		return
+	}
+
+	// Add user to local database
+	database.Users[len(database.Users)] = user
+
+	// Write to the original database
 	if err := db.writeDB(database); err != nil {
 		respondWithError(w, 500, "Error saving database")
 		return
 	}
 
-	db.respondWithJSON(w, 200, cBody.Body)
+	// Write to HTTP response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write(dat)
 
 }
