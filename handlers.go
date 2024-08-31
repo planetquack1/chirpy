@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func assetHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,24 +42,68 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hits reset to 0"))
 }
 
-func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
+// func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
 
+// 	database, err := db.loadDB()
+// 	if err != nil {
+// 		respondWithError(w, 500, "Error loading database")
+// 		return
+// 	}
+
+// 	dat, err := json.Marshal(database)
+// 	if err != nil {
+// 		log.Printf("Error marshalling JSON: %s", err)
+// 		w.WriteHeader(500)
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(200)
+// 	w.Write(dat)
+// }
+
+func (db *DB) getChirpByID(w http.ResponseWriter, r *http.Request) {
+
+	// Extract chirpID from the path using PathValue
+	chirpIDStr := r.PathValue("chirpID")
+	if chirpIDStr == "" {
+		respondWithError(w, 400, "chirpID not provided") // 400 error?
+		return
+	}
+
+	// Convert chirpID to integer using strconv.Atoi
+	chirpID, err := strconv.Atoi(chirpIDStr)
+	if err != nil {
+		respondWithError(w, 400, "Invalid chirpID") // 400 error?
+		return
+	}
+
+	// Load current database
 	database, err := db.loadDB()
 	if err != nil {
 		respondWithError(w, 500, "Error loading database")
 		return
 	}
 
-	dat, err := json.Marshal(database)
-	if err != nil {
-		log.Printf("Error marshalling JSON: %s", err)
-		w.WriteHeader(500)
+	// Look up the chirp in the database
+	chirp, exists := database.Chirps[chirpID-1]
+	if !exists {
+		respondWithError(w, 500, "Chirp not found") // 500 error?
 		return
 	}
 
+	// Marhsal the chirp
+	dat, err := json.Marshal(chirp)
+	if err != nil {
+		log.Printf("Error marshalling error JSON: %s", err)
+		return
+	}
+
+	// Return the chirp as JSON
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	w.Write(dat)
+
 }
 
 func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {

@@ -25,7 +25,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
 
-	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirpByID)
+
 	mux.HandleFunc("POST /api/chirps", db.postChirp)
 
 	srv := http.Server{
