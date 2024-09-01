@@ -24,7 +24,7 @@ func handlerReadiness(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *Config) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	htmlResponse := fmt.Sprintf(`
@@ -38,7 +38,7 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(htmlResponse))
 }
 
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *Config) resetHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits = 0
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
@@ -246,7 +246,7 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (db *DB) postLogin(w http.ResponseWriter, r *http.Request) {
+func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	login := Login{}
@@ -254,34 +254,46 @@ func (db *DB) postLogin(w http.ResponseWriter, r *http.Request) {
 	// Check if cannot decode, send ERROR
 	err := decoder.Decode(&login)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Cannot decode request body")
 		return
 	}
 
 	// Load current database
-	database, err := db.loadDB()
+	database, err := api.DB.loadDB()
 	if err != nil {
-		respondWithError(w, 500, "Error loading database")
+		respondWithError(w, http.StatusInternalServerError, "Error loading database")
 		return
 	}
+
+	// VALIDATE USER
 
 	// Check if user exists in database
 	user, exists := database.Users[login.Email]
 	if !exists {
-		respondWithError(w, 401, "User does not exist")
+		respondWithError(w, http.StatusUnauthorized, "User does not exist")
 		return
 	}
 
 	// See if password is correct
 	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(login.Password)); err != nil {
-		respondWithError(w, 401, "Password is incorrect")
+		respondWithError(w, http.StatusUnauthorized, "Password is incorrect")
 		return
 	}
 
-	// Get User struct
+	// RESPOND WITH USER WITHOUT PASSWORD
+
+	// Create a token
+	token, err := api.Config.createToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
+		return
+	}
+
+	// Create UserWithoutPassword struct
 	uWithoutPassword := UserWithoutPassword{
 		ID:    user.ID,
 		Email: user.Email,
+		Token: token,
 	}
 
 	// Marshal the UserWithoutPassword struct
