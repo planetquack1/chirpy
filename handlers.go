@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func assetHandler(w http.ResponseWriter, r *http.Request) {
@@ -194,11 +196,20 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Encrypt password
+	cost := bcrypt.DefaultCost
+
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(login.Password), cost)
+	if err != nil {
+		respondWithError(w, 500, "Error generating password hash")
+		return
+	}
+
 	// Create new User struct
 	user := User{
 		ID:       len(database.Users) + 1,
 		Email:    login.Email,
-		Password: login.Password,
+		Password: encryptedPassword,
 	}
 
 	// Check if user exists in database
@@ -217,8 +228,60 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create new User Without Password struct
 	uWithoutPassword := UserWithoutPassword{
-		ID:    len(database.Users) + 1,
+		ID:    len(database.Users),
 		Email: login.Email,
+	}
+
+	// Marshal the UserWithoutPassword struct
+	dat, err := json.Marshal(uWithoutPassword)
+	if err != nil {
+		log.Printf("Error marshalling user: %s", err)
+		return
+	}
+
+	// Write to HTTP response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	w.Write(dat)
+
+}
+
+func (db *DB) postLogin(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+	login := Login{}
+
+	// Check if cannot decode, send ERROR
+	err := decoder.Decode(&login)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		return
+	}
+
+	// Load current database
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Check if user exists in database
+	user, exists := database.Users[login.Email]
+	if !exists {
+		respondWithError(w, 401, "User does not exist")
+		return
+	}
+
+	// See if password is correct
+	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(login.Password)); err != nil {
+		respondWithError(w, 401, "Password is incorrect")
+		return
+	}
+
+	// Get User struct
+	uWithoutPassword := UserWithoutPassword{
+		ID:    user.ID,
+		Email: user.Email,
 	}
 
 	// Marshal the UserWithoutPassword struct

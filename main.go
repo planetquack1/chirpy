@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -19,6 +21,11 @@ func main() {
 	mux := http.NewServeMux()
 	apiCfg := &apiConfig{}
 
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+	apiCfg.jwtSecret = jwtSecret
+
 	handler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(handler))
 
@@ -31,6 +38,8 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", db.postChirp)
 
 	mux.HandleFunc("POST /api/users", db.postUser)
+
+	mux.HandleFunc("POST /api/login", db.postLogin)
 
 	srv := http.Server{
 		Addr:    ":8080",
