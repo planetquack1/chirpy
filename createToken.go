@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var expires_in_seconds = 2
+var expires_in_seconds = 3600
 
-func (cfg *Config) createToken() (string, error) {
+func (cfg *Config) createToken(userID int) (string, error) {
 
 	// Get current time
 	currentTime := time.Now()
@@ -24,6 +25,7 @@ func (cfg *Config) createToken() (string, error) {
 		Issuer:    "chirpy",
 		IssuedAt:  issuedAt,
 		ExpiresAt: expiresAt,
+		Subject:   fmt.Sprint(userID),
 	}
 
 	// Create a new token

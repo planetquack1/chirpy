@@ -219,6 +219,8 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// Add user to local database
 	database.Users[login.Email] = user
+	database.UsersByID = append(database.UsersByID, user)
+	// database.UsersByID[user.ID-1] = user // out of bounds error
 
 	// Write to the original database
 	if err := db.writeDB(database); err != nil {
@@ -242,6 +244,100 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 	// Write to HTTP response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+	w.Write(dat)
+
+}
+
+func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+	updatedLogin := Login{}
+
+	// Check if cannot decode, send ERROR
+	err := decoder.Decode(&updatedLogin)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		return
+	}
+
+	// VALIDATE USER
+
+	// Extract JWT token from the Authorization header
+	userIDstr, err := api.Config.getUserIDFromToken(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+	}
+
+	// UPDATE USER
+
+	// Convert userID to int
+	userID, err := strconv.Atoi(userIDstr)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Cannot convert userID string to int")
+		return
+	}
+
+	// Load current database
+	database, err := api.DB.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Encrypt password
+	cost := bcrypt.DefaultCost
+
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(updatedLogin.Password), cost)
+	if err != nil {
+		respondWithError(w, 500, "Error generating password hash")
+		return
+	}
+
+	// Create an updated User struct
+	user := User{
+		ID:       userID,
+		Email:    updatedLogin.Email,
+		Password: encryptedPassword,
+	}
+
+	// TODO: Delete user with old email as its key. For now, set all fields to empty
+
+	// Get the old email (key)
+	userEmailBeforeChange := database.UsersByID[userID-1].Email
+	// Set fields to empty
+	database.Users[userEmailBeforeChange] = User{
+		ID:       0,
+		Email:    "",
+		Password: []byte(""),
+	}
+
+	// Update both user lists
+	database.UsersByID[userID-1] = user
+	database.Users[updatedLogin.Email] = user
+
+	// Write to the original database
+	if err := api.DB.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// WRITE TO HTTP RESPONSE
+
+	// Create an updated User Without Password struct
+	uWithoutPassword := UserWithoutPassword{
+		ID:    userID,
+		Email: updatedLogin.Email,
+	}
+
+	// Marshal the UserWithoutPassword struct
+	dat, err := json.Marshal(uWithoutPassword)
+	if err != nil {
+		log.Printf("Error marshalling user: %s", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(dat)
 
 }
@@ -283,7 +379,7 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 	// RESPOND WITH USER WITHOUT PASSWORD
 
 	// Create a token
-	token, err := api.Config.createToken()
+	token, err := api.Config.createToken(user.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
 		return
@@ -304,6 +400,8 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write to HTTP response
+	w.Header().Set("Authorization", token)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write(dat)

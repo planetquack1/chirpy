@@ -48,6 +48,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", db.postChirp)
 
 	mux.HandleFunc("POST /api/users", db.postUser)
+	mux.HandleFunc("PUT /api/users", api.updateUser)
 
 	mux.HandleFunc("POST /api/login", api.postLogin)
 

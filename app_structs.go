@@ -30,7 +30,7 @@ type User struct {
 type UserWithoutPassword struct {
 	ID    int    `json:"id"`
 	Email string `json:"email"`
-	Token string `json:"token"`
+	Token string `json:"token,omitempty"`
 }
 
 // type chirpValid struct {
