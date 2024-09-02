@@ -28,9 +28,10 @@ type User struct {
 }
 
 type UserWithoutPassword struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
-	Token string `json:"token,omitempty"`
+	ID           int    `json:"id"`
+	Email        string `json:"email"`
+	Token        string `json:"token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 // type chirpValid struct {

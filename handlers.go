@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -386,11 +388,21 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a refresh token
+	refreshTokenBytes := make([]byte, 32)
+	_, err = rand.Read(refreshTokenBytes)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate refresh token")
+		return
+	}
+	refreshToken := hex.EncodeToString(refreshTokenBytes)
+
 	// Create UserWithoutPassword struct
 	uWithoutPassword := UserWithoutPassword{
-		ID:    user.ID,
-		Email: user.Email,
-		Token: token,
+		ID:           user.ID,
+		Email:        user.Email,
+		Token:        token,
+		RefreshToken: refreshToken,
 	}
 
 	// Marshal the UserWithoutPassword struct
