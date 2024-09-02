@@ -4,12 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 func (cfg *Config) getUserIDFromToken(r *http.Request) (string, error) {
-	tokenString := r.Header.Get("Authorization")
+
+	tokenString := getTokenFromHeader(r)
+
 	fmt.Println("token string is " + tokenString)
 
 	claims, err := cfg.parseToken(tokenString)
@@ -43,4 +46,14 @@ func (cfg *Config) parseToken(tokenString string) (*jwt.RegisteredClaims, error)
 		fmt.Println("invalid token")
 		return nil, errors.New("invalid token")
 	}
+}
+
+func getTokenFromHeader(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		// Return the token without the "Bearer " prefix
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	// Return the header as is if "Bearer " is not found
+	return authHeader
 }

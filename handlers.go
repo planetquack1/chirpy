@@ -266,6 +266,7 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	userIDstr, err := api.Config.getUserIDFromToken(r)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
 	}
 
 	// UPDATE USER
