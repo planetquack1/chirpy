@@ -64,3 +64,12 @@ func getTokenFromHeader(r *http.Request) string {
 	// Return the header as is if "Bearer " is not found
 	return authHeader
 }
+
+func contains(slice []string, item string) bool {
+	for _, element := range slice {
+		if element == item {
+			return true
+		}
+	}
+	return false
+}

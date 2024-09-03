@@ -289,6 +289,12 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if overwriting another user's information
+	if contains(database.UsersByID, updatedLogin.Email) && updatedLogin.Email != userEmail {
+		respondWithError(w, http.StatusUnauthorized, "User with same email exists")
+		return
+	}
+
 	// Encrypt password
 	cost := bcrypt.DefaultCost
 
@@ -459,38 +465,57 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
+func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
 
-// 	// Extract refresh token from the Authorization header
-// 	refreshToken := getTokenFromHeader(r)
+	// Extract refresh token from the Authorization header
+	refreshToken := getTokenFromHeader(r)
 
-// 	// Check if token exists in database
+	// Load current database
+	database, err := api.DB.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
 
-// 	// Token is valid, so create a new access token
-// 	token, err := api.Config.createToken(userID)
-// 	if err != nil {
-// 		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
-// 		return
-// 	}
+	// Check if token exists in database
+	refreshTokenInfo, exists := database.RefreshTokens[refreshToken]
+	if !exists {
+		respondWithError(w, 500, "Refresh token not found")
+		return
+	}
 
-// 	// WRITE TO HTTP RESPONSE
+	// Get the user
+	user, exists := database.Users[refreshTokenInfo.Email]
+	if !exists {
+		respondWithError(w, 500, "Canot find owner of refresh token")
+		return
+	}
 
-// 	// Create new Token struct
-// 	tokenResponse := Token{
-// 		Token: token,
-// 	}
+	// Token is valid, so create a new access token
+	token, err := api.Config.createToken(user.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
+		return
+	}
 
-// 	// Marshal the Token struct
-// 	dat, err := json.Marshal(tokenResponse)
-// 	if err != nil {
-// 		log.Printf("Error marshalling user: %s", err)
-// 		return
-// 	}
+	// WRITE TO HTTP RESPONSE
 
-// 	w.Header().Set("Authorization", token)
+	// Create new Token struct
+	tokenResponse := Token{
+		Token: token,
+	}
 
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusOK)
-// 	w.Write(dat)
+	// Marshal the Token struct
+	dat, err := json.Marshal(tokenResponse)
+	if err != nil {
+		log.Printf("Error marshalling user: %s", err)
+		return
+	}
 
-// }
+	w.Header().Set("Authorization", token)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(dat)
+
+}
