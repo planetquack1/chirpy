@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -72,4 +73,26 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func chirpsToList(chirps map[int]Chirp, reversed bool) []Chirp {
+
+	chirpsSlice := []Chirp{}
+
+	for _, chirp := range chirps {
+		chirpsSlice = append(chirpsSlice, chirp)
+	}
+
+	// Sort chirps by ID
+	sort.Slice(chirpsSlice, func(i, j int) bool {
+		return chirpsSlice[i].Id < chirpsSlice[j].Id
+	})
+
+	if reversed {
+		for i, j := 0, len(chirpsSlice)-1; i < j; i, j = i+1, j-1 {
+			chirpsSlice[i], chirpsSlice[j] = chirpsSlice[j], chirpsSlice[i]
+		}
+	}
+
+	return chirpsSlice
 }

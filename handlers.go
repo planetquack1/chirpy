@@ -51,6 +51,7 @@ func (cfg *Config) resetHandler(w http.ResponseWriter, r *http.Request) {
 func (db *DB) getChirps(w http.ResponseWriter, r *http.Request) {
 
 	authorIDstr := r.URL.Query().Get("author_id")
+	sort := r.URL.Query().Get("sort")
 
 	database, err := db.loadDB()
 	if err != nil {
@@ -79,7 +80,19 @@ func (db *DB) getChirps(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	dat, err := json.Marshal(chirps)
+	reversed := false
+	if sort == "desc" {
+		reversed = true
+	} else if sort == "asc" || sort == "" {
+		reversed = false
+	} else {
+		respondWithError(w, 400, "Invalid sort method") // 400 error?
+		return
+	}
+
+	chirpsList := chirpsToList(chirps, reversed)
+
+	dat, err := json.Marshal(chirpsList)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
 		w.WriteHeader(500)
