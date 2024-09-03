@@ -33,8 +33,10 @@ func main() {
 
 	godotenv.Load()
 	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaSecret := os.Getenv("POLKA_SECRET")
 
 	cfg.jwtSecret = jwtSecret
+	cfg.polkaSecret = polkaSecret
 
 	handler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/", cfg.middlewareMetricsInc(handler))
@@ -56,6 +58,8 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", api.postRefresh)
 
 	mux.HandleFunc("POST /api/revoke", api.postRevoke)
+
+	mux.HandleFunc("POST /api/polka/webhooks", api.postPolka)
 
 	srv := http.Server{
 		Addr:    ":8080",

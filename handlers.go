@@ -120,7 +120,7 @@ func (api *API) postChirp(w http.ResponseWriter, r *http.Request) {
 	// Check if cannot decode, send ERROR
 	err := decoder.Decode(&cBody)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, 500, "Cannot decode body into struct")
 		return
 	}
 
@@ -255,7 +255,7 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 	// Check if cannot decode, send ERROR
 	err := decoder.Decode(&login)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, 500, "Cannot decode body into struct")
 		return
 	}
 
@@ -281,6 +281,7 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 		Email:        login.Email,
 		Password:     encryptedPassword,
 		RefreshToken: "",
+		IsChirpyRed:  false,
 	}
 
 	// Check if user exists in database
@@ -326,7 +327,7 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	// Check if cannot decode, send ERROR
 	err := decoder.Decode(&updatedLogin)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, 500, "Cannot decode body into struct")
 		return
 	}
 
@@ -389,6 +390,7 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		Email:        updatedLogin.Email,
 		Password:     encryptedPassword,
 		RefreshToken: user.RefreshToken, // Keep same refresh token
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	// TODO: Delete user with old email as its key. For now, set all fields to empty
@@ -504,6 +506,7 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Password:     user.Password,
 		RefreshToken: refreshToken,
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	// ADD TOKEN TO DATABASE
@@ -537,6 +540,7 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Token:        token,
 		RefreshToken: refreshToken,
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	// Marshal the UserWithoutPassword struct
@@ -558,7 +562,7 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
 
 	// Extract refresh token from the Authorization header
-	refreshToken := getTokenFromHeader(r)
+	refreshToken := getTokenFromHeader(r, "Bearer")
 
 	// Load current database
 	database, err := api.DB.loadDB()
@@ -613,7 +617,7 @@ func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
 func (api *API) postRevoke(w http.ResponseWriter, r *http.Request) {
 
 	// Extract refresh token from the Authorization header
-	refreshToken := getTokenFromHeader(r)
+	refreshToken := getTokenFromHeader(r, "Bearer")
 
 	// Load current database
 	database, err := api.DB.loadDB()
@@ -650,6 +654,7 @@ func (api *API) postRevoke(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Password:     user.Password,
 		RefreshToken: "", // Remove refresh token
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	// Write to the original database
@@ -660,6 +665,72 @@ func (api *API) postRevoke(w http.ResponseWriter, r *http.Request) {
 
 	// WRITE TO HTTP RESPONSE
 
+	w.WriteHeader(http.StatusNoContent)
+
+}
+
+func (api *API) postPolka(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+	polka := Polka{}
+
+	// Check if cannot decode, send ERROR
+	err := decoder.Decode(&polka)
+	if err != nil {
+		respondWithError(w, 500, "Cannot decode body into struct")
+		return
+	}
+
+	// Extract Polka API key from the Authorization header
+	polkaAPIKey := getTokenFromHeader(r, "ApiKey")
+
+	// Check if API key matches
+	if polkaAPIKey != api.Config.polkaSecret {
+		respondWithError(w, 401, "Unauthorized purchase")
+		return
+	}
+
+	// Check if event is not user.upgraded, so do not edit database
+	if polka.Event != "user.upgraded" {
+		return
+	}
+
+	// Get user that upgraded
+	userID := polka.Data.UserID
+
+	// Load current database
+	database, err := api.DB.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Get user email by ID
+	userEmail := database.UsersByID[userID-1]
+
+	// Get user by email
+	user, exists := database.Users[userEmail]
+	if !exists {
+		respondWithError(w, 404, "Could not find user by email")
+		return
+	}
+
+	// Update user
+	database.Users[userEmail] = User{
+		ID:           user.ID,
+		Email:        user.Email,
+		Password:     user.Password,
+		RefreshToken: user.RefreshToken,
+		IsChirpyRed:  true,
+	}
+
+	// Write to the original database
+	if err := api.DB.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// Write to HTTP response
 	w.WriteHeader(http.StatusNoContent)
 
 }

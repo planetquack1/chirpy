@@ -12,7 +12,7 @@ import (
 
 func (cfg *Config) getUserIDFromToken(r *http.Request) (int, error) {
 
-	tokenString := getTokenFromHeader(r)
+	tokenString := getTokenFromHeader(r, "Bearer")
 
 	fmt.Println("token string is " + tokenString)
 
@@ -55,11 +55,11 @@ func (cfg *Config) parseToken(tokenString string) (*jwt.RegisteredClaims, error)
 	}
 }
 
-func getTokenFromHeader(r *http.Request) string {
+func getTokenFromHeader(r *http.Request, prefix string) string {
 	authHeader := r.Header.Get("Authorization")
-	if strings.HasPrefix(authHeader, "Bearer ") {
+	if strings.HasPrefix(authHeader, (prefix + " ")) {
 		// Return the token without the "Bearer " prefix
-		return strings.TrimPrefix(authHeader, "Bearer ")
+		return strings.TrimPrefix(authHeader, (prefix + " "))
 	}
 	// Return the header as is if "Bearer " is not found
 	return authHeader

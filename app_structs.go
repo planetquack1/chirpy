@@ -42,6 +42,7 @@ type User struct {
 	Email        string `json:"email"`
 	Password     []byte `json:"password"`
 	RefreshToken string `json:"refresh_token,omitempty"`
+	IsChirpyRed  bool   `json:"is_chirpy_red"`
 }
 
 type UserWithoutPassword struct {
@@ -49,6 +50,14 @@ type UserWithoutPassword struct {
 	Email        string `json:"email"`
 	Token        string `json:"token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
+	IsChirpyRed  bool   `json:"is_chirpy_red"`
+}
+
+type Polka struct {
+	Event string `json:"event"`
+	Data  struct {
+		UserID int `json:"user_id"`
+	} `json:"data"`
 }
 
 // type chirpValid struct {
