@@ -46,6 +46,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirpByID)
 	mux.HandleFunc("POST /api/chirps", api.postChirp)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", api.deleteChirp)
 
 	mux.HandleFunc("POST /api/users", db.postUser)
 	mux.HandleFunc("PUT /api/users", api.updateUser)

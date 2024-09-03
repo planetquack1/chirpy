@@ -173,7 +173,7 @@ func (api *API) postChirp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add post to local database
-	database.Chirps[len(database.Chirps)] = cCleanedChirp
+	database.Chirps[len(database.Chirps)+1] = cCleanedChirp
 
 	// Write to the original database
 	if err := api.DB.writeDB(database); err != nil {
@@ -186,6 +186,65 @@ func (api *API) postChirp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Write(dat)
 
+}
+
+func (api *API) deleteChirp(w http.ResponseWriter, r *http.Request) {
+
+	// Extract chirpID from the path using PathValue
+	chirpIDStr := r.PathValue("chirpID")
+	if chirpIDStr == "" {
+		respondWithError(w, 400, "chirpID not provided") // 400 error?
+		return
+	}
+
+	// Convert chirpID to integer using strconv.Atoi
+	chirpID, err := strconv.Atoi(chirpIDStr)
+	if err != nil {
+		respondWithError(w, 400, "Invalid chirpID") // 400 error?
+		return
+	}
+
+	// Extract JWT token from the Authorization header
+	userID, err := api.Config.getUserIDFromToken(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token, or cannot parse ID as int")
+		return
+	}
+
+	// Load the database
+	database, err := api.DB.loadDB()
+	if err != nil {
+		respondWithError(w, 400, "Could not load database")
+		return
+	}
+
+	// Check if chirp exists
+	if _, exists := database.Chirps[chirpID]; !exists {
+		respondWithError(w, http.StatusInternalServerError, "Chirp does not exist")
+		return
+	}
+
+	// Check if user is the author of the chirp
+	if database.Chirps[chirpID].AuthorID != userID {
+		respondWithError(w, 403, "Cannot delete another user's chirp")
+		return
+	}
+
+	// Clear chirp
+	database.Chirps[chirpID] = Chirp{
+		Id:       database.Chirps[chirpID].Id, // Can keep the same
+		Body:     "",
+		AuthorID: 0,
+	}
+
+	// Write to the original database
+	if err := api.DB.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// Write to HTTP response
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
