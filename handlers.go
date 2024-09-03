@@ -48,25 +48,27 @@ func (cfg *Config) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hits reset to 0"))
 }
 
-// func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
+func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
 
-// 	database, err := db.loadDB()
-// 	if err != nil {
-// 		respondWithError(w, 500, "Error loading database")
-// 		return
-// 	}
+	database, err := db.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
 
-// 	dat, err := json.Marshal(database)
-// 	if err != nil {
-// 		log.Printf("Error marshalling JSON: %s", err)
-// 		w.WriteHeader(500)
-// 		return
-// 	}
+	chirps := database.Chirps
 
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(200)
-// 	w.Write(dat)
-// }
+	dat, err := json.Marshal(chirps)
+	if err != nil {
+		log.Printf("Error marshalling JSON: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write(dat)
+}
 
 func (db *DB) getChirpByID(w http.ResponseWriter, r *http.Request) {
 
