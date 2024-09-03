@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func (cfg *Config) getUserIDFromToken(r *http.Request) (string, error) {
+func (cfg *Config) getUserIDFromToken(r *http.Request) (int, error) {
 
 	tokenString := getTokenFromHeader(r)
 
@@ -18,10 +19,16 @@ func (cfg *Config) getUserIDFromToken(r *http.Request) (string, error) {
 	claims, err := cfg.parseToken(tokenString)
 	if err != nil {
 		fmt.Println("error parsing token")
-		return "", err
+		return 0, err
 	}
 
-	return claims.Subject, nil
+	// Convert userID to int
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
 }
 
 func (cfg *Config) parseToken(tokenString string) (*jwt.RegisteredClaims, error) {

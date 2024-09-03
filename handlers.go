@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -209,9 +210,10 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create new User struct
 	user := User{
-		ID:       len(database.Users) + 1,
-		Email:    login.Email,
-		Password: encryptedPassword,
+		ID:           len(database.Users) + 1,
+		Email:        login.Email,
+		Password:     encryptedPassword,
+		RefreshToken: "",
 	}
 
 	// Check if user exists in database
@@ -221,8 +223,7 @@ func (db *DB) postUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// Add user to local database
 	database.Users[login.Email] = user
-	database.UsersByID = append(database.UsersByID, user)
-	// database.UsersByID[user.ID-1] = user // out of bounds error
+	database.UsersByID = append(database.UsersByID, user.Email)
 
 	// Write to the original database
 	if err := db.writeDB(database); err != nil {
@@ -265,25 +266,26 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	// VALIDATE USER
 
 	// Extract JWT token from the Authorization header
-	userIDstr, err := api.Config.getUserIDFromToken(r)
+	userID, err := api.Config.getUserIDFromToken(r)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		respondWithError(w, http.StatusUnauthorized, "Invalid token, or cannot parse ID as int")
 		return
 	}
 
 	// UPDATE USER
 
-	// Convert userID to int
-	userID, err := strconv.Atoi(userIDstr)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Cannot convert userID string to int")
-		return
-	}
-
 	// Load current database
 	database, err := api.DB.loadDB()
 	if err != nil {
 		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Check if user exists in database
+	userEmail := database.UsersByID[userID-1] // Get email as key
+	user, exists := database.Users[userEmail] // Use key to access user struct
+	if !exists {
+		respondWithError(w, http.StatusUnauthorized, "User does not exist")
 		return
 	}
 
@@ -297,16 +299,17 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create an updated User struct
-	user := User{
-		ID:       userID,
-		Email:    updatedLogin.Email,
-		Password: encryptedPassword,
+	updatedUser := User{
+		ID:           userID,
+		Email:        updatedLogin.Email,
+		Password:     encryptedPassword,
+		RefreshToken: user.RefreshToken, // Keep same refresh token
 	}
 
 	// TODO: Delete user with old email as its key. For now, set all fields to empty
 
 	// Get the old email (key)
-	userEmailBeforeChange := database.UsersByID[userID-1].Email
+	userEmailBeforeChange := database.UsersByID[userID-1]
 	// Set fields to empty
 	database.Users[userEmailBeforeChange] = User{
 		ID:       0,
@@ -315,8 +318,18 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update both user lists
-	database.UsersByID[userID-1] = user
-	database.Users[updatedLogin.Email] = user
+	database.UsersByID[userID-1] = updatedLogin.Email
+	database.Users[updatedLogin.Email] = updatedUser
+
+	// Update email of refresh token, if exists
+	refreshToken := user.RefreshToken
+	fmt.Println("user token: " + refreshToken)
+	if existingTokenInfo, exists := database.RefreshTokens[refreshToken]; exists {
+		database.RefreshTokens[refreshToken] = RefreshTokenInfo{
+			ExpiresAt: existingTokenInfo.ExpiresAt, // Keep the same ExpiresAt value
+			Email:     updatedLogin.Email,          // Update the email
+		}
+	}
 
 	// Write to the original database
 	if err := api.DB.writeDB(database); err != nil {
@@ -379,6 +392,40 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// UPDATE USER WITH NEW REFRESH TOKEN
+
+	// Generate a refresh token
+	refreshTokenBytes := make([]byte, 32)
+	_, err = rand.Read(refreshTokenBytes)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate refresh token")
+		return
+	}
+	refreshToken := hex.EncodeToString(refreshTokenBytes)
+
+	database.Users[user.Email] = User{
+		ID:           user.ID,
+		Email:        user.Email,
+		Password:     user.Password,
+		RefreshToken: refreshToken,
+	}
+
+	// ADD TOKEN TO DATABASE
+
+	// Calculate expiration duration
+	expiresIn := time.Duration(refresh_token_expires_in_days) * 24 * time.Hour
+
+	database.RefreshTokens[refreshToken] = RefreshTokenInfo{
+		ExpiresAt: time.Now().Add(expiresIn),
+		Email:     user.Email,
+	}
+
+	// Write to the original database
+	if err := api.DB.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
 	// RESPOND WITH USER WITHOUT PASSWORD
 
 	// Create a token
@@ -387,15 +434,6 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
 		return
 	}
-
-	// Create a refresh token
-	refreshTokenBytes := make([]byte, 32)
-	_, err = rand.Read(refreshTokenBytes)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to generate refresh token")
-		return
-	}
-	refreshToken := hex.EncodeToString(refreshTokenBytes)
 
 	// Create UserWithoutPassword struct
 	uWithoutPassword := UserWithoutPassword{
@@ -420,3 +458,39 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 	w.Write(dat)
 
 }
+
+// func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
+
+// 	// Extract refresh token from the Authorization header
+// 	refreshToken := getTokenFromHeader(r)
+
+// 	// Check if token exists in database
+
+// 	// Token is valid, so create a new access token
+// 	token, err := api.Config.createToken(userID)
+// 	if err != nil {
+// 		respondWithError(w, http.StatusInternalServerError, "Password is incorrect")
+// 		return
+// 	}
+
+// 	// WRITE TO HTTP RESPONSE
+
+// 	// Create new Token struct
+// 	tokenResponse := Token{
+// 		Token: token,
+// 	}
+
+// 	// Marshal the Token struct
+// 	dat, err := json.Marshal(tokenResponse)
+// 	if err != nil {
+// 		log.Printf("Error marshalling user: %s", err)
+// 		return
+// 	}
+
+// 	w.Header().Set("Authorization", token)
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write(dat)
+
+// }

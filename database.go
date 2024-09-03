@@ -14,9 +14,10 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps    map[int]Chirp   `json:"chirps"`
-	Users     map[string]User `json:"users"`
-	UsersByID []User          `json:"users_by_id"`
+	Chirps        map[int]Chirp               `json:"chirps"`
+	Users         map[string]User             `json:"users"`
+	UsersByID     []string                    `json:"users_by_id"`
+	RefreshTokens map[string]RefreshTokenInfo `json:"refresh_tokens"`
 }
 
 // NewDB creates a new database connection
@@ -43,9 +44,10 @@ func (db *DB) ensureDB() error {
 	if _, err := os.Stat(db.path); errors.Is(err, os.ErrNotExist) {
 		fmt.Println("Database does not exist")
 		initialData := DBStructure{
-			Chirps:    make(map[int]Chirp),
-			Users:     make(map[string]User),
-			UsersByID: []User{},
+			Chirps:        make(map[int]Chirp),
+			Users:         make(map[string]User),
+			UsersByID:     []string{},
+			RefreshTokens: make(map[string]RefreshTokenInfo),
 		}
 
 		file, err := json.MarshalIndent(initialData, "", "  ") // in order for a new file to be created, you have to use this format
