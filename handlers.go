@@ -48,7 +48,9 @@ func (cfg *Config) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hits reset to 0"))
 }
 
-func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
+func (db *DB) getChirps(w http.ResponseWriter, r *http.Request) {
+
+	authorIDstr := r.URL.Query().Get("author_id")
 
 	database, err := db.loadDB()
 	if err != nil {
@@ -56,7 +58,26 @@ func (db *DB) getAllChirps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chirps := database.Chirps
+	// If authorID is not provided, get all chirps
+	chirps := make(map[int]Chirp)
+	if authorIDstr == "" {
+		chirps = database.Chirps
+	} else {
+
+		// Convert authorID to integer using strconv.Atoi
+		authorID, err := strconv.Atoi(authorIDstr)
+		if err != nil {
+			respondWithError(w, 400, "Invalid chirpID") // 400 error?
+			return
+		}
+
+		// Search through all chirps, find where author IDs match
+		for _, chirp := range database.Chirps {
+			if chirp.AuthorID == authorID {
+				chirps[chirp.Id] = chirp
+			}
+		}
+	}
 
 	dat, err := json.Marshal(chirps)
 	if err != nil {
@@ -185,7 +206,7 @@ func (api *API) postChirp(w http.ResponseWriter, r *http.Request) {
 
 	// Write to HTTP response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(201)
 	w.Write(dat)
 
 }
