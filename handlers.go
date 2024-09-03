@@ -112,7 +112,7 @@ func (db *DB) getChirpByID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
+func (api *API) postChirp(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	cBody := chirpBody{}
@@ -144,8 +144,15 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 	// Join the words back into a cleaned message
 	cleanedMsg := strings.Join(words, " ")
 
+	// Extract JWT token from the Authorization header
+	userID, err := api.Config.getUserIDFromToken(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token, or cannot parse ID as int")
+		return
+	}
+
 	// Load the database
-	database, err := db.loadDB()
+	database, err := api.DB.loadDB()
 	if err != nil {
 		respondWithError(w, 400, "Could not load database")
 		return
@@ -153,8 +160,9 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 
 	// Create the cleaned Chirp struct
 	cCleanedChirp := Chirp{
-		Id:   len(database.Chirps) + 1,
-		Body: cleanedMsg,
+		Id:       len(database.Chirps) + 1,
+		Body:     cleanedMsg,
+		AuthorID: userID,
 	}
 
 	// Marshal the cleaned chirp struct
@@ -168,7 +176,7 @@ func (db *DB) postChirp(w http.ResponseWriter, r *http.Request) {
 	database.Chirps[len(database.Chirps)] = cCleanedChirp
 
 	// Write to the original database
-	if err := db.writeDB(database); err != nil {
+	if err := api.DB.writeDB(database); err != nil {
 		respondWithError(w, 500, "Error saving database")
 		return
 	}
@@ -565,7 +573,7 @@ func (api *API) postRevoke(w http.ResponseWriter, r *http.Request) {
 	// Get the user
 	user, exists := database.Users[refreshTokenInfo.Email]
 	if !exists {
-		respondWithError(w, 500, "Cannot find owner of refresh token")
+		respondWithError(w, http.StatusUnauthorized, "Cannot find owner of refresh token")
 		return
 	}
 

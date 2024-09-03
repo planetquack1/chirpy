@@ -5,8 +5,9 @@ import "time"
 type Chirp struct {
 	// these tags indicate how the keys in the JSON should be mapped to the struct fields
 	// the struct fields must be exported (start with a capital letter) if you want them parsed
-	Id   int    `json:"id"`
-	Body string `json:"body"`
+	Id       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorID int    `json:"author_id"`
 }
 
 type chirpBody struct {
