@@ -304,6 +304,18 @@ func (api *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// VOID THE PREVIOUS TOKEN
+
+	previousToken, exists := database.RefreshTokens[user.RefreshToken]
+	if !exists {
+		respondWithError(w, 500, "Cannot find refresh token")
+		return
+	}
+	database.RefreshTokens[user.RefreshToken] = RefreshTokenInfo{
+		ExpiresAt: previousToken.ExpiresAt, // Keep the same, no need to change
+		Email:     "",
+	}
+
 	// Create an updated User struct
 	updatedUser := User{
 		ID:           userID,
@@ -398,6 +410,17 @@ func (api *API) postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// VOID THE PREVIOUS TOKEN
+
+	previousToken, exists := database.RefreshTokens[user.RefreshToken]
+	if exists {
+		database.RefreshTokens[user.RefreshToken] = RefreshTokenInfo{
+			ExpiresAt: previousToken.ExpiresAt, // Keep the same, no need to change
+			Email:     "",
+		}
+
+	}
+
 	// UPDATE USER WITH NEW REFRESH TOKEN
 
 	// Generate a refresh token
@@ -487,7 +510,7 @@ func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
 	// Get the user
 	user, exists := database.Users[refreshTokenInfo.Email]
 	if !exists {
-		respondWithError(w, 500, "Canot find owner of refresh token")
+		respondWithError(w, 500, "Cannot find owner of refresh token")
 		return
 	}
 
@@ -517,5 +540,59 @@ func (api *API) postRefresh(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(dat)
+
+}
+
+func (api *API) postRevoke(w http.ResponseWriter, r *http.Request) {
+
+	// Extract refresh token from the Authorization header
+	refreshToken := getTokenFromHeader(r)
+
+	// Load current database
+	database, err := api.DB.loadDB()
+	if err != nil {
+		respondWithError(w, 500, "Error loading database")
+		return
+	}
+
+	// Check if token exists in database
+	refreshTokenInfo, exists := database.RefreshTokens[refreshToken]
+	if !exists {
+		respondWithError(w, 500, "Refresh token not found")
+		return
+	}
+
+	// Get the user
+	user, exists := database.Users[refreshTokenInfo.Email]
+	if !exists {
+		respondWithError(w, 500, "Cannot find owner of refresh token")
+		return
+	}
+
+	// VOID THE PREVIOUS TOKEN
+
+	// Refresh token exists, so delete it, TODO: remove entirely
+	database.RefreshTokens[refreshToken] = RefreshTokenInfo{
+		ExpiresAt: refreshTokenInfo.ExpiresAt, // keep this the same
+		Email:     "",
+	}
+
+	// Remove old refresh token in Users list
+	database.Users[refreshTokenInfo.Email] = User{
+		ID:           user.ID,
+		Email:        user.Email,
+		Password:     user.Password,
+		RefreshToken: "", // Remove refresh token
+	}
+
+	// Write to the original database
+	if err := api.DB.writeDB(database); err != nil {
+		respondWithError(w, 500, "Error saving database")
+		return
+	}
+
+	// WRITE TO HTTP RESPONSE
+
+	w.WriteHeader(http.StatusNoContent)
 
 }

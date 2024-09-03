@@ -54,6 +54,8 @@ func main() {
 
 	mux.HandleFunc("POST /api/refresh", api.postRefresh)
 
+	mux.HandleFunc("POST /api/revoke", api.postRevoke)
+
 	srv := http.Server{
 		Addr:    ":8080",
 		Handler: mux,
